@@ -12,16 +12,10 @@ open import Data.Bool
 open import Agda.Primitive
 open RawMonad {lzero} monad
 
+
 postulate
-  SET : Set → Set
-  toSet : ∀{X} → List X → SET X
-  toList : ∀{X} → SET X → List X
-  _-SET_ : ∀{X} → SET X → SET X → SET X
-  _+SET_ : ∀{X} → SET X → SET X → SET X
-  _∈SET_ : ∀{X} → X → SET X → Bool
-
-
   Hash : Set
+  _<H_ : Hash → Hash → Set
   eqH : Decidable (λ (h h' : Hash) → h ≡ h')
 
 Value : Set
@@ -51,17 +45,27 @@ record Input where
   field id : Id
         index : ℕ
 
+open Input
+
+-- and ordering on inputs
+open import Data.Sum
+open import Data.Product
+
+_<I_ : Input → Input → Set
+i <I j = id i <H id j ⊎ id i ≡ id j × index i < index j 
+
 record Output where
   field address : Address
         value   : Value
-        
+
+open import BST Input _<I_
+
 record Tx where
-  field inputs  : SET Input
+  field inputs  : Tree
         outputs : List Output
         forge   : Value
         fee     : Value
 
-open Input
 open Output
 open Tx
 
@@ -94,8 +98,8 @@ val i l = value <$> out i l
 
 -- the new unspent outputs created by a transaction
 
-unspentOutputs : Tx → SET Input
-unspentOutputs tx = toSet (help 0 (outputs tx))
+unspentOutputs : Tx → Tree
+unspentOutputs tx = fromList (help 0 (outputs tx))
   where
   help : ℕ → List Output → List Input
   help n []       = []
@@ -103,19 +107,19 @@ unspentOutputs tx = toSet (help 0 (outputs tx))
 
 -- the outputs that have been spent for a tx
 
-spentOutputs : Tx → SET Input
+spentOutputs : Tx → Tree
 spentOutputs tx = inputs tx
 
 -- computing the set of unspent outputs
 
-utxo : Ledger → SET Input
-utxo []         = toSet [] 
-utxo (tx ∷ txs) = (utxo txs -SET (spentOutputs tx)) +SET unspentOutputs tx
+utxo : Ledger → Tree
+utxo []         = fromList []
+utxo (tx ∷ txs) = (utxo txs -T (spentOutputs tx)) +T unspentOutputs tx
 
 -- Definition 6.
 
 noDouble : Tx → Bool
-noDouble tx = all (_∈SET unspentOutputs tx) (toList (inputs tx)) 
+noDouble tx = all (_∈T unspentOutputs tx) (toList (inputs tx)) 
 
 valuePreserved : (l : Ledger)(tx : Tx) → Dec _
 valuePreserved l tx =
