@@ -144,8 +144,10 @@ utxo (tx ∷ txs) = (utxo txs -T (spentOutputs tx)) +T unspentOutputs tx
 noDouble : Tx → Bool
 noDouble tx = all (_∈T unspentOutputs tx) (toList (inputs tx)) 
 
-valuePreserved : (l : Ledger)(tx : Tx) → Dec _
-valuePreserved l tx =
+valuePreserved : (l : Ledger)(tx : Tx) → Bool
+valuePreserved l tx with (
   forge tx + sum (mapMaybe (λ i → val i l)  (toList (inputs tx)))
   Data.Nat.≟
-  sum (Data.List.map value (outputs tx)) + fee tx
+  sum (Data.List.map value (outputs tx)) + fee tx)
+valuePreserved l tx | yes p = true
+valuePreserved l tx | no ¬p = false
