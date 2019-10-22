@@ -15,9 +15,9 @@ open RawMonad {lzero} monad
 
 postulate
   Hash : Set
-  _<H_ : Hash → Hash → Set
-  _<H?_ : Decidable _<H_
-  _eqH?_ : Decidable (λ (h h' : Hash) → h ≡ h')
+  _<H_ : Hash → Hash → Bool
+  _>H_ : Hash → Hash → Bool
+  _eqH_ : Hash → Hash → Bool
 
 Value : Set
 Value = ℕ
@@ -52,35 +52,36 @@ open Input
 open import Data.Sum
 open import Data.Product
 
-_<I_ : Input → Input → Set
-i <I j = id i <H id j ⊎ id i ≡ id j × index i < index j 
+_<I?_ : ∀ i j → Bool
+i <I? j with id i <H id j
+(i <I? j) | true = true
+(i <I? j) | false with id i eqH id j
+(i <I? j) | false | true with index i <? index j
+(i <I? j) | false | true | yes _ = true
+(i <I? j) | false | true | no  _ = false
+(i <I? j) | false | false = false
 
-_<I?_ : ∀ i j → Dec (i <I j)
-i <I? j with id i <H? id j
-(i <I? j) | yes p = yes (inj₁ p)
-(i <I? j) | no ¬p with id i eqH? id j
-(i <I? j) | no ¬p | yes q with index i <? index j
-(i <I? j) | no ¬p | yes q | yes r = yes (inj₂ (q , r))
-(i <I? j) | no ¬p | yes q | no ¬r =
-  no (λ { (inj₁ x) → ¬p x ; (inj₂ y) → ¬r (proj₂ y)})
-(i <I? j) | no ¬p | no ¬q =
-  no (λ { (inj₁ x) → ¬p x ; (inj₂ y) → ¬q (proj₁ y)})
+_>I?_ : ∀ i j → Bool
+i >I? j with id i >H id j
+(i >I? j) | true = true
+(i >I? j) | false with id i eqH id j
+(i >I? j) | false | true with index i >? index j
+(i >I? j) | false | true | yes _ = true
+(i >I? j) | false | true | no  _ = false
+(i >I? j) | false | false = false
 
-_eqI?_ : (i j : Input) → Dec (i ≡ j)
-i eqI? j with id i eqH? id j
-(i eqI? j) | yes p with index i Data.Nat.≟ index j
-(i eqI? j) | yes p | no ¬q = no (λ x → ¬q (cong index x))
-(record { id = ._ ; index = ._ } eqI? record { id = _ ; index = _ })
-  | yes refl
-  | yes refl
-  = yes refl 
-(i eqI? j) | no ¬p = no (λ x → ¬p (cong id x))
+_eqI?_ : (i j : Input) → Bool
+i eqI? j with id i eqH id j
+(i eqI? j) | true with index i Data.Nat.≟ index j
+(i eqI? j) | true | no _ = false
+(i eqI? j) | true | yes _ = true
+(i eqI? j) | false = false
 
 record Output where
   field address : Address
         value   : Value
 
-open import BST Input _<I_ _eqI?_ _<I?_ renaming (Tree to InputSet)
+open import BST Input _eqI?_ _<I?_ _>I?_ renaming (Tree to InputSet)
 
 record Tx where
   field inputs  : InputSet
@@ -93,9 +94,9 @@ open Tx
 
 llookup : Id → Ledger → Maybe Tx
 llookup i []       = nothing
-llookup i (t ∷ ts) with i eqH? (hash t)
-... | yes p = just t
-... | no ¬p = llookup i ts
+llookup i (t ∷ ts) with i eqH (hash t)
+... | true = just t
+... | false = llookup i ts
 
 olookup : ℕ → List Output → Maybe Output
 olookup _       []       = nothing
