@@ -80,10 +80,10 @@ record Output where
   field address : Address
         value   : Value
 
-open import BST Input _<I_ _eqI?_ _<I?_
+open import BST Input _<I_ _eqI?_ _<I?_ renaming (Tree to InputSet)
 
 record Tx where
-  field inputs  : Tree
+  field inputs  : InputSet
         outputs : List Output
         forge   : Value
         fee     : Value
@@ -120,7 +120,7 @@ val i l = value <$> out i l
 
 -- the new unspent outputs created by a transaction
 
-unspentOutputs : Tx → Tree
+unspentOutputs : Tx → InputSet
 unspentOutputs tx = fromList (help 0 (outputs tx))
   where
   help : ℕ → List Output → List Input
@@ -129,12 +129,12 @@ unspentOutputs tx = fromList (help 0 (outputs tx))
 
 -- the outputs that have been spent for a tx
 
-spentOutputs : Tx → Tree
+spentOutputs : Tx → InputSet
 spentOutputs tx = inputs tx
 
 -- computing the set of unspent outputs
 
-utxo : Ledger → Tree
+utxo : Ledger → InputSet
 utxo []         = fromList []
 utxo (tx ∷ txs) = (utxo txs -T (spentOutputs tx)) +T unspentOutputs tx
 
